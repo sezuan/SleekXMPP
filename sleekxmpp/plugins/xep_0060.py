@@ -139,7 +139,9 @@ class xep_0060(base.base_plugin):
 				return False
 			subs = {}
 			for sub in results:
-				subs[sub.get('jid')] = sub.get('subscription')
+				if sub.get('jid') not in subs :
+					subs[sub.get('jid')] = []
+				subs[sub.get('jid')].append({ 'subscription' : sub.get('subscription'), 'node' : sub.get('node'), 'subid' : sub.get('subid') })
 			return subs
 
 	def getNodeAffiliations(self, jid, node):
