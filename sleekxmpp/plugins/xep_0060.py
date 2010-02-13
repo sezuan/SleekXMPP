@@ -121,8 +121,8 @@ class xep_0060(base.base_plugin):
 	def getNodeSubscriptions(self, jid, node = None):
 		pubsub = ET.Element('{http://jabber.org/protocol/pubsub}pubsub')
 		subscriptions = ET.Element('subscriptions')
-  if node is not None :
-    subscriptions.attrib['node'] = node
+		if node is not None :
+			subscriptions.attrib['node'] = node
 		pubsub.append(subscriptions)
 		iq = self.xmpp.makeIqGet()
 		iq.append(pubsub)
