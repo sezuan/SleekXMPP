@@ -68,7 +68,7 @@ class xep_0060(base.base_plugin):
 		if result is False or result is None or result.get('type') == 'error': return False
 		return True
 	
-	def unsubscribe(self, jid, node, bare=True, subscribee=None):
+	def unsubscribe(self, jid, node, bare=True, subscribee=None, subid=None):
 		pubsub = ET.Element('{http://jabber.org/protocol/pubsub}pubsub')
 		unsubscribe = ET.Element('unsubscribe')
 		unsubscribe.attrib['node'] = node
@@ -79,6 +79,8 @@ class xep_0060(base.base_plugin):
 				unsubscribe.attrib['jid'] = self.xmpp.fulljid
 		else:
 			unsubscribe.attrib['jid'] = subscribee
+		if subid is not None:
+			unsubscribe.attrib['subid'] = subid
 		pubsub.append(unsubscribe)
 		iq = self.xmpp.makeIqSet(pubsub)
 		iq.attrib['to'] = jid
