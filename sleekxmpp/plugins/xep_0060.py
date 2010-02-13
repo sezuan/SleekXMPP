@@ -118,10 +118,11 @@ class xep_0060(base.base_plugin):
 			return False
 		return self.xmpp.plugin['xep_0004'].buildForm(form)
 	
-	def getNodeSubscriptions(self, jid, node):
+	def getNodeSubscriptions(self, jid, node = None):
 		pubsub = ET.Element('{http://jabber.org/protocol/pubsub}pubsub')
 		subscriptions = ET.Element('subscriptions')
-		subscriptions.attrib['node'] = node
+  if node is not None :
+    subscriptions.attrib['node'] = node
 		pubsub.append(subscriptions)
 		iq = self.xmpp.makeIqGet()
 		iq.append(pubsub)
