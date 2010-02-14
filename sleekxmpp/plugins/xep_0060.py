@@ -117,7 +117,7 @@ class xep_0060(base.base_plugin):
 		return self.xmpp.plugin['xep_0004'].buildForm(form)
 	
 	def getNodeSubscriptions(self, jid, node):
-		pubsub = ET.Element('{http://jabber.org/protocol/pubsub#owner}pubsub')
+		pubsub = ET.Element('{http://jabber.org/protocol/pubsub}pubsub')
 		subscriptions = ET.Element('subscriptions')
 		subscriptions.attrib['node'] = node
 		pubsub.append(subscriptions)
@@ -131,7 +131,7 @@ class xep_0060(base.base_plugin):
 			logging.warning("got error instead of config")
 			return False
 		else:
-			results = result.findall('{http://jabber.org/protocol/pubsub#owner}pubsub/{http://jabber.org/protocol/pubsub#owner}subscriptions/{http://jabber.org/protocol/pubsub#owner}subscription')
+			results = result.findall('{http://jabber.org/protocol/pubsub}pubsub/{http://jabber.org/protocol/pubsub}subscriptions/{http://jabber.org/protocol/pubsub}subscription')
 			if results is None:
 				return False
 			subs = {}
