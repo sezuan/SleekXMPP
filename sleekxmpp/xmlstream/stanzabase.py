@@ -1,3 +1,10 @@
+"""
+    SleekXMPP: The Sleek XMPP Library
+    Copyright (C) 2010  Nathanael C. Fritz
+    This file is part of SleekXMPP.
+
+    See the file license.txt for copying permission.
+"""
 from xml.etree import cElementTree as ET
 import logging
 import traceback
@@ -44,7 +51,6 @@ class ElementBase(tostring.ToString):
 	subitem = None
 
 	def __init__(self, xml=None, parent=None):
-		self.attrib = self # backwards compatibility hack
 		self.parent = parent
 		self.xml = xml
 		self.plugins = {}
@@ -56,6 +62,11 @@ class ElementBase(tostring.ToString):
 					self.plugins[self.plugin_tag_map[child.tag].plugin_attrib] = self.plugin_tag_map[child.tag](xml=child, parent=self)
 				if self.subitem is not None and child.tag == "{%s}%s" % (self.subitem.namespace, self.subitem.name):
 					self.iterables.append(self.subitem(xml=child, parent=self))
+
+
+	@property
+	def attrib(self): #backwards compatibility
+		return self
 
 	def __iter__(self):
 		self.idx = 0
