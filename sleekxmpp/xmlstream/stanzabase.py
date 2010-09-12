@@ -9,6 +9,7 @@ from xml.etree import cElementTree as ET
 import logging
 import traceback
 import sys
+import weakref
 
 if sys.version_info < (3,0):
 	from . import tostring26 as tostring
@@ -51,7 +52,10 @@ class ElementBase(tostring.ToString):
 	subitem = None
 
 	def __init__(self, xml=None, parent=None):
-		self.parent = parent
+		if parent is None:
+			self.parent = None
+		else:
+			self.parent = weakref.ref(parent)
 		self.xml = xml
 		self.plugins = {}
 		self.iterables = []
@@ -60,8 +64,11 @@ class ElementBase(tostring.ToString):
 			for child in self.xml.getchildren():
 				if child.tag in self.plugin_tag_map:
 					self.plugins[self.plugin_tag_map[child.tag].plugin_attrib] = self.plugin_tag_map[child.tag](xml=child, parent=self)
-				if self.subitem is not None and child.tag == "{%s}%s" % (self.subitem.namespace, self.subitem.name):
-					self.iterables.append(self.subitem(xml=child, parent=self))
+				if self.subitem is not None:
+					for sub in self.subitem:
+						if child.tag == "{%s}%s" % (sub.namespace, sub.name):
+							self.iterables.append(sub(xml=child, parent=self))
+							break
 
 
 	@property
@@ -74,11 +81,14 @@ class ElementBase(tostring.ToString):
 	
 	def __next__(self):
 		self.idx += 1
-		if self.idx + 1 > len(self.iterables):
+		if self.idx > len(self.iterables):
 			self.idx = 0
 			raise StopIteration
-		return self.affiliations[self.idx]
+		return self.iterables[self.idx - 1]
 	
+	def next(self):
+		return self.__next__()
+
 	def __len__(self):
 		return len(self.iterables)
 	
@@ -117,9 +127,11 @@ class ElementBase(tostring.ToString):
 		else:
 			nodes = matchstring
 		tagargs = nodes[0].split('@')
-		if tagargs[0] not in (self.plugins, self.name): return False
+		if tagargs[0] not in (self.plugins, self.plugin_attrib): return False
 		founditerable = False
 		for iterable in self.iterables:
+			if nodes[1:] == []:
+				break
 			founditerable = iterable.match(nodes[1:])
 			if founditerable: break;
 		for evals in tagargs[1:]:
@@ -135,6 +147,9 @@ class ElementBase(tostring.ToString):
 	
 	def find(self, xpath): # for backwards compatiblity, expose elementtree interface
 		return self.xml.find(xpath)
+
+	def findall(self, xpath):
+		return self.xml.findall(xpath)
 	
 	def setup(self, xml=None):
 		if self.xml is None:
@@ -147,7 +162,7 @@ class ElementBase(tostring.ToString):
 				else:
 					self.xml.append(new)
 			if self.parent is not None:
-				self.parent.xml.append(self.xml)
+				self.parent().xml.append(self.xml)
 			return True #had to generate XML
 		else:
 			return False
@@ -210,6 +225,8 @@ class ElementBase(tostring.ToString):
 		return self
 	
 	def __eq__(self, other):
+		if not isinstance(other, ElementBase):
+			return False
 		values = self.getValues()
 		for key in other:
 			if key not in values or values[key] != other[key]:
@@ -259,7 +276,10 @@ class ElementBase(tostring.ToString):
 		for pluginkey in self.plugins:
 			out[pluginkey] = self.plugins[pluginkey].getValues()
 		if self.iterables:
-			iterables = [x.getValues() for x in self.iterables]
+			iterables = []
+			for stanza in self.iterables:
+				iterables.append(stanza.getValues())
+				iterables[-1].update({'__childtag__': "{%s}%s" % (stanza.namespace, stanza.name)})
 			out['substanzas'] = iterables
 		return out
 	
@@ -267,9 +287,13 @@ class ElementBase(tostring.ToString):
 		for interface in attrib:
 			if interface == 'substanzas':
 				for subdict in attrib['substanzas']:
-					sub = self.subitem(parent=self)
-					sub.setValues(subdict)
-					self.iterables.append(sub)
+					if '__childtag__' in subdict:
+						for subclass in self.subitem:
+							if subdict['__childtag__'] == "{%s}%s" % (subclass.namespace, subclass.name):
+								sub = subclass(parent=self)
+								sub.setValues(subdict)
+								self.iterables.append(sub)
+								break
 			elif interface in self.interfaces:
 				self[interface] = attrib[interface]
 			elif interface in self.plugin_attrib_map and interface not in self.plugins:
@@ -282,9 +306,9 @@ class ElementBase(tostring.ToString):
 		self.xml.append(xml)
 		return self
 	
-	def __del__(self):
-		if self.parent is not None:
-			self.parent.xml.remove(self.xml)
+	#def __del__(self): #prevents garbage collection of reference cycle
+	#	if self.parent is not None:
+	#		self.parent.xml.remove(self.xml)
 
 class StanzaBase(ElementBase):
 	name = 'stanza'
@@ -308,7 +332,7 @@ class StanzaBase(ElementBase):
 	
 	def setType(self, value):
 		if value in self.types:
-				self.xml.attrib['type'] = value
+			self.xml.attrib['type'] = value
 		return self
 
 	def getPayload(self):
@@ -316,15 +340,18 @@ class StanzaBase(ElementBase):
 	
 	def setPayload(self, value):
 		self.xml.append(value)
+		return self
 	
 	def delPayload(self):
 		self.clear()
+		return self
 	
 	def clear(self):
 		for child in self.xml.getchildren():
 			self.xml.remove(child)
-		#for plugin in list(self.plugins.keys()):
-		#	del self.plugins[plugin]
+		for plugin in list(self.plugins.keys()):
+			del self.plugins[plugin]
+		return self
 	
 	def reply(self):
 		self['from'], self['to'] = self['to'], self['from']
@@ -333,6 +360,7 @@ class StanzaBase(ElementBase):
 	
 	def error(self):
 		self['type'] = 'error'
+		return self
 	
 	def getTo(self):
 		return JID(self._getAttr('to'))
